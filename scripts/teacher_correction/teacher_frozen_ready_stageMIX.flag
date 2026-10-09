@@ -1,0 +1,14 @@
+{
+  "ready": true,
+  "diagnosis": false,
+  "eval_stage": "MIX",
+  "force_op": null,
+  "mean_trg": 0.2251125530214503,
+  "positive_fraction": 0.7729697688203913,
+  "mean_input_iou": 0.6079548868044843,
+  "mean_output_iou": 0.8330674398259376,
+  "mask_gate": 0.27109888195991516,
+  "head_checkpoint": "/home/hanyuxi/ConverSeg-main/ckpts/teacher_correction/author3b_fix_v2/CorrectionTeacher_3B_fix_v2_head_final.torch",
+  "report": "/home/hanyuxi/ConverSeg-main/ckpts/teacher_correction/author3b_fix_v2/eval_recovery_stageMIX/trg_report.json",
+  "fix_v2": true
+}

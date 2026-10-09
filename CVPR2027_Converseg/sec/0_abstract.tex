@@ -1,0 +1,10 @@
+\begin{abstract}
+
+\begin{abstract}
+Conversational Image Segmentation (CIS) requires grounding abstract intents, spatial relationships, functional affordances, and physical constraints into pixel-level masks[cite: 1, 2]. While recent baselines, such as ConVerSeg-Net, demonstrate strong vision-language reasoning capabilities, their training heavily relies on static data distributions and off-policy supervision[cite: 1, 2]. Consequently, models fail to receive targeted corrections for their real-time prediction errors, and data generation engines remain agnostic to the student model's evolving weaknesses[cite: 2]. Operating on the hypothesis that the most valuable supervision stems from dynamically correcting active student mistakes rather than matching fixed ground truths, we propose Dual-Level On-Policy Distillation (DL-OPD)[cite: 2]. 
+
+At the prediction level, Mask-Policy OPD reformulates segmentation as a mask-state policy[cite: 2]. A frozen teacher corrects the student's current mask proposals through joint distillation across pixels, boundaries, and intermediate representations[cite: 2]. To preserve deployment efficiency, an Iterative-to-Single-Pass Collapse mechanism seamlessly compresses this multi-step correction capability back into a single forward pass[cite: 2]. At the data level, Data-Policy OPD tracks real-time student error profiles—spanning various conversational concepts, negative prompts, and boundary calibration—to adaptively guide image selection and error-driven hard prompt generation[cite: 2]. These samples undergo multi-stage teacher verification to construct a short-lived hard sample pool[cite: 2]. By systematically demonstrating the complementary gains of student-induced states over fixed states and error-driven generation over random augmentation, DL-OPD establishes a highly efficient, scalable data closed loop for advanced visual understanding and embodied perception[cite: 2].
+\end{abstract}
+
+
+\end{abstract}

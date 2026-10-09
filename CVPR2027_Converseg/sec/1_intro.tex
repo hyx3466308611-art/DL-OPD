@@ -1,0 +1,24 @@
+\section{Introduction}
+\label{sec:intro}
+
+Visual grounding has transitioned from recognizing canonical object categories to parsing complex human intents and physical constraints within dynamic environments. Conversational Image Segmentation (CIS) represents a significant leap in this trajectory[cite: 1]. Unlike traditional referring image segmentation that grounds explicit spatial and categorical phrases (e.g., ``the apple on the left'')[cite: 1], CIS demands pixel-level comprehension of abstract concepts, functional affordances, and implicit physical safety (e.g., ``which items can be safely removed without toppling the stack?'')[cite: 1, 2].
+
+Recent pioneering efforts, such as ConVerSeg-Net, have established strong baselines for CIS by fusing the dense segmentation priors of foundation models like SAM2 with the formidable reasoning capabilities of Large Vision-Language Models (VLMs)[cite: 1, 2]. Despite these architectural advancements, a critical bottleneck remains in the training paradigm: the reliance on static data distributions and off-policy supervision[cite: 2]. In standard knowledge distillation for dense prediction, a teacher model provides target masks based on fixed input images and prompts, entirely agnostic to the specific, real-time prediction errors made by the student model[cite: 2]. Concurrently, automated data engines typically sample from pre-defined distributions, failing to adapt to the student's dynamically shifting weaknesses during the learning process[cite: 2]. Consequently, the most valuable supervisory signal—correcting the actual mistakes a student is actively making during deployment—remains severely underexploited[cite: 2].
+
+To bridge this gap, we propose Dual-Level On-Policy Distillation (DL-OPD), a novel framework that fundamentally transforms CIS training from a static target-matching task into a dynamic, co-evolving closed loop[cite: 2]. Our core hypothesis is that the highest marginal value for model optimization is derived from targeted corrections on the student's induced error states, coupled with an error-driven data curriculum[cite: 2].
+
+DL-OPD operates across two synergistic temporal scales. At the micro-level, \textit{Mask-Policy OPD} reformulates the non-autoregressive segmentation process as a mask-state policy[cite: 2]. Rather than fitting a static ground truth, the student generates an initial mask proposal[cite: 2]. A frozen, high-capacity teacher model then receives this actively flawed state to provide a semantic and geometric correction[cite: 2]. This enables targeted joint distillation across pixel probabilities, geometric boundaries, and intermediate representations[cite: 2]. To ensure this iterative refinement does not double inference latency during deployment, we introduce an Iterative-to-Single-Pass Collapse mechanism, seamlessly compressing the multi-step corrective knowledge back into the student's single-pass forward propagation[cite: 2].
+
+At the macro-level, \textit{Data-Policy OPD} continuously profiles the student's real-time error rates across five conversational concepts, negative prompts, and boundary calibration[cite: 2]. Driven by this real-time error profile, the data engine adaptively selects images and applies targeted generation operators—such as minimal semantic pairs and physical counterfactuals—to synthesize hard prompts[cite: 2]. Following strict multi-stage teacher verification, these samples populate a short-lived Hard Buffer, ensuring the model is perpetually challenged by its current weaknesses rather than over-fitting to mastered concepts[cite: 2].
+
+The main contributions of this work are summarized as follows:
+\begin{itemize}
+    \item We formulate conversational image segmentation as an on-policy state problem and propose Mask-Policy OPD, enabling teacher models to provide targeted, state-conditioned corrections on real-time student mask proposals[cite: 2].
+    \item We introduce Data-Policy OPD, an adaptive data engine that dynamically shapes the training distribution based on real-time student error profiling, significantly enhancing data efficiency[cite: 2].
+    \item We design a multi-granularity joint distillation objective coupled with an Iterative-to-Single-Pass Collapse mechanism, transferring complex multi-step reasoning capabilities while preserving single-pass inference efficiency[cite: 2].
+    \item Extensive experiments on the ConVerSeg benchmark demonstrate that DL-OPD achieves superior performance, delivering substantial gains in abstract reasoning concepts (e.g., Physics, Affordances) and robust hallucination suppression for negative prompts[cite: 2].
+\end{itemize}
+
+
+%-------------------------------------------------------------------------
+

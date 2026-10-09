@@ -1,0 +1,26 @@
+ttl_cycles: 2
+capacity: 50000
+value_weights:
+  alpha: 1.0
+  beta: 1.0
+  gamma: 1.0
+  delta: 1.0
+  eta: 1.0
+concept_sampling:
+  rho: 1.0
+  mu: 0.5
+  min_prob: 0.05
+operators_mvp:
+  - semantic_rewrite
+  - minimal_semantic_pair
+operators_full:
+  - semantic_rewrite
+  - minimal_semantic_pair
+  - combinatorial_constraint
+  - affordance_physics_cf
+  - hallucination_targeted
+q_data:
+  q_min: 0.35
+  c_sem_min: 0.5
+  c_geo_min: 0.4
+  c_novel_min: 0.2

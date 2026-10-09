@@ -1,0 +1,11 @@
+# Standalone gate thresholds (mirrored in dl_opd.yaml → gate)
+tau_hi: 0.85
+delta: 0.02
+conf_hard: 0.55
+conf_soft: 0.35
+consistency_min: 0.70
+enable_dual_teacher: false
+enable_identity_on_high_iou: true
+# Suggested validation sweeps (do NOT tune on test):
+# tau_hi in {0.80, 0.85, 0.90}
+# delta in {0.0, 0.02, 0.05}

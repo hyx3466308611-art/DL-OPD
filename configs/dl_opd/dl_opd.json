@@ -1,0 +1,47 @@
+{
+  "out": "ckpts/dl_opd/mask_opd",
+  "schedule": {
+    "n_outer": 4
+  },
+  "data_policy": {
+    "ttl_cycles": 2,
+    "diag_bootstrap_n": 64
+  },
+  "gate": {
+    "tau_hi": 0.85,
+    "delta": 0.02
+  },
+  "loss": {
+    "lambda_opd": 1.0,
+    "lambda_bd": 0.5,
+    "temperature": 2.0
+  },
+  "train": {
+    "steps": 2000,
+    "batch_size": 1,
+    "acc": 6,
+    "lr": 2e-05
+  },
+  "student": {
+    "plm_model": "student/Qwen2.5-VL-3B",
+    "sam_ckpt": "ckpts/stage2_phase2mix/ConVerSeg_stage2_final.torch",
+    "plm_ckpt": "ckpts/stage2_phase2mix/ConVerSeg_stage2_plm_final.torch",
+    "lora": "ckpts/stage2_phase2mix/lora_plm_adapter_final"
+  },
+  "teacher": {
+    "plm_model": "teacher/Qwen2.5-VL-7B",
+    "base_sam": "teacher/sam2_hiera_large.pt",
+    "sam_ckpt": "ckpts/teacher_correction/teacher7b/CorrectionTeacher_7B_final.torch",
+    "plm_ckpt": "ckpts/teacher_correction/teacher7b/CorrectionTeacher_7B_plm_final.torch",
+    "lora": "ckpts/teacher_correction/teacher7b/lora_plm_adapter_final",
+    "head_ckpt": "ckpts/teacher_correction/teacher7b/CorrectionTeacher_7B_head_final.torch"
+  },
+  "data": {
+    "data_dir": "data",
+    "dataset_jsonl": "phase2/phase2_mixed.jsonl"
+  },
+  "cache": {
+    "enabled": true,
+    "ttl_epochs": 2
+  }
+}

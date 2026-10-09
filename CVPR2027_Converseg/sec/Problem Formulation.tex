@@ -1,0 +1,23 @@
+\section{Problem Formulation}
+
+We define the Conversational Image Segmentation (CIS) task[cite: 1] and reformulate it from a static mapping problem into a dynamic state-policy framework to enable on-policy learning[cite: 2].
+
+\subsection{Task Definition and State Formulation}
+
+In the standard CIS paradigm, given an image $I$ and a natural language prompt $p$, the objective is to predict a binary mask $M_p$ that accurately localizes the pixels satisfying the query[cite: 1]. Unlike traditional referring image segmentation, CIS prompts encompass functional, physical, and context-dependent reasoning (e.g., ``surfaces stable enough to stack books'')[cite: 1].
+
+However, learning a direct static mapping $\pi(I, p) \rightarrow M_p$ prevents the model from receiving targeted feedback on its intermediate decision boundaries[cite: 2]. To facilitate Dual-Level On-Policy Distillation (DL-OPD), we reformulate this dense prediction task as a mask-state policy[cite: 2]. We define the prediction state at step $k$ as $s^k = (I, p, q_s^k)$, where $q_s^k \in [0,1]^{H \times W}$ is the student model's predicted probability mask[cite: 2]. The task is thus upgraded to learning an optimal policy $\pi_\theta$ that sequentially refines the mask state, starting from an empty initial state $q_s^0 = \emptyset$[cite: 2].
+
+\subsection{Conversational Concepts and Error Profiling}
+
+CIS encompasses five concept families that require distinct reasoning mechanisms inspired by human vision science and intuitive physics[cite: 1]. Under static supervision paradigms, these concepts are particularly susceptible to severe distribution shifts and idiosyncratic model hallucinations[cite: 2]. We adopt these five families not merely as a categorization scheme, but as the foundational dimensions for our Data-Policy error profiling vector $u = [E_{ent}, E_{spa}, E_{rel}, E_{aff}, E_{phy}, \dots]$[cite: 2]:
+
+\begin{enumerate}
+    \item \textbf{Entities ($E_{ent}$):} Prompts identifying categories or open-vocabulary attributes[cite: 1]. Profiling here captures errors in instance selection and attribute confusion[cite: 2].
+    \item \textbf{Spatial \& Layout ($E_{spa}$):} Prompts concerning spatial relations and occupancy[cite: 1]. Profiling targets inaccuracies in depth ordering and interactive relationships[cite: 2].
+    \item \textbf{Relations \& Events ($E_{rel}$):} Prompts targeting interactions or transient states (e.g., ``the door being opened'')[cite: 1]. 
+    \item \textbf{Affordances \& Functions ($E\_{aff}$):} Prompts requiring reasoning about object usability and counterfactual applications[cite: 1]. This dimension tracks the model's failure to recognize intended utility over mere object category[cite: 2].
+    \item \textbf{Physics \& Safety ($E\_{phy}$):} Prompts invoking stability, support, and hazard assessment[cite: 1]. Errors here frequently manifest as severe mask boundary deviations when assessing structural integrity or risk[cite: 2].
+\end{enumerate}
+
+By tracking the student's real-time error rates across these specific conceptual dimensions, our outer loop dynamically identifies algorithmic weaknesses and triggers the generation of targeted hard prompts to reshape the training distribution[cite: 2].

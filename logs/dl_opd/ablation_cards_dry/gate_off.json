@@ -1,0 +1,10 @@
+{
+  "name": "gate_off",
+  "outer": "fixed",
+  "inner": "current_state_gate_off",
+  "hypothesis": "gate-ablation",
+  "config": "configs/dl_opd/dl_opd.yaml",
+  "train_cmd_policy": "python -u scripts/dl_opd/train_dl_opd.py --config configs/dl_opd/dl_opd.yaml --policy_only",
+  "train_cmd_inner": "python -u scripts/dl_opd/train_mask_opd.py --config configs/dl_opd/dl_opd.yaml",
+  "notes": "Fill state_source / gate.enabled overrides per name before launch."
+}

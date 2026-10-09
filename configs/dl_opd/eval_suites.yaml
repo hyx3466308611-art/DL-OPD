@@ -1,0 +1,9 @@
+converseg_splits: sam_seeded,human_annotated
+suites_dir: data/dl_opd/eval_suites
+hard_jsonl: data/dl_opd/eval_suites/hard_prompt_set.jsonl
+negative_jsonl: data/dl_opd/eval_suites/negative_prompt_set.jsonl
+recovery_jsonl: data/dl_opd/eval_suites/mask_recovery_set.jsonl
+metrics:
+  primary: gIoU
+  secondary: [cIoU, BoundaryF, HD, EmptyAccuracy, FalsePositiveArea, RecoveryGain]
+binarize_threshold: 0.5

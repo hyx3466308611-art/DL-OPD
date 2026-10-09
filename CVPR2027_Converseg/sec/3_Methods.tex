@@ -1,0 +1,244 @@
+\section{Method}
+\label{sec:method}
+
+To address the limitations of static supervision, we propose the Dual-Level On-Policy Distillation (DL-OPD) framework. The framework consists of an inner loop (Mask-Policy OPD) that formulates segmentation as a mask-state policy for state-conditioned correction, and an outer loop (Data-Policy OPD) that dynamically reshapes the training data distribution. We describe these two levels and their synergistic algorithm below.
+
+\subsection{Mask-Policy OPD: State-Conditioned Correction}
+\label{subsec:mask_opd}
+
+\noindent\textbf{Mask-State Policy Formulation.} We reformulate single-pass segmentation as a Markov mask-state policy. We define the state at step $k$ as $s^k=(I,p,q_s^k)$, where $q_s^k$ is the student's predicted probability mask. The initial state is an empty mask, allowing the student to make a first prediction $q_s^1$. A frozen teacher provides a correction target $q_t^2$ conditioned on the student's stopped-gradient output $sg(q_s^1)$. The student then refines its own mask to produce $q_s^2$ from the exact same state. The teacher's supervision dynamically adapts as the student's parameters update:
+\begin{equation}
+    q_s^1 = \pi_\theta(I,p,\emptyset), \quad q_t^2 = \pi_T(I,p,sg(q_s^1)), \quad q_s^2 = \pi_\theta(I,p,sg(q_s^1))
+\label{eq:markov_state}
+\end{equation}
+
+\noindent\textbf{MaskStateEncoder and Network Status.} To support this state input, we introduce a \textit{MaskStateEncoder} between the ConVerSeg Language Adapters and the SAM2 Mask Decoder. It encodes the probability mask into the SAM2 dense prompt space, fusing it with the global vision-language representation corresponding to the Qwen EOS token. The components are trained as follows: (1) \textit{SAM2 Image Encoder} ($I \rightarrow z_{\mathrm{img}}$) is frozen; (2) \textit{Qwen2.5-VL Prompt Encoder} ($(I,p) \rightarrow$ token/EOS states) is LoRA fine-tuned; (3) \textit{Language Adapters} (text states $\rightarrow$ sparse/dense prompts) are fully trained; (4) \textit{MaskStateEncoder} ($q_s^k \rightarrow$ dense mask prompt) is newly added and fully trained; (5) \textit{SAM2 Mask Decoder} (fused states $\rightarrow q_s^{k+1}$) is fully trained.
+
+\noindent\textbf{Correction Teacher Construction.} We adopt a stronger Qwen2.5-VL-7B and SAM2 Hiera-L as the teacher. To prevent the teacher from trivially copying the input mask, we construct semantically meaningful corrupted states (e.g., erosion, dilation, missing components, false instances, boundary jitter, positional shift, partial fulfillment) from the Ground Truth (GT) and train the teacher to recover the target mask using a light-to-heavy curriculum. The teacher is then frozen. Crucially, the Teacher Recovery Gain is independently verified before entering the OPD phase to ensure the teacher fixes rather than amplifies errors.
+
+\noindent\textbf{Joint Distillation Objective.} The inner loop is optimized via a six-component loss function spanning multi-granularity supervision:
+\begin{equation}
+    \mathcal{L} = \mathcal{L}_{\mathrm{sup}} + \lambda_{\mathrm{opd}} \mathcal{L}_{\mathrm{opd}} + \lambda_{\mathrm{bd}} \mathcal{L}_{\mathrm{bd}} + \lambda_{\mathrm{rep}} \mathcal{L}_{\mathrm{rep}} + \lambda_{\mathrm{col}} \mathcal{L}_{\mathrm{col}} + \lambda_{\mathrm{anc}} \mathcal{L}_{\mathrm{anc}}
+\end{equation}
+Specifically, $\mathcal{L}_{\mathrm{sup}}$ applies BCE and Dice losses to both $q_s^1$ and $q_s^2$ to ensure teacher errors do not override reliable GT. $\mathcal{L}_{\mathrm{opd}}$ is a pixel-wise Bernoulli KL divergence weighted by student entropy, teacher-student disagreement, and boundary location. $\mathcal{L}_{\mathrm{bd}}$ employs Boundary Dice to enforce geometric quality for parts, surfaces, and functional regions. $\mathcal{L}_{\mathrm{rep}}$ aligns Qwen selected text tokens, EOS, Language Adapter outputs, and SAM2 mask tokens. $\mathcal{L}_{\mathrm{col}}$ is the Iterative-to-Single-Pass Collapse loss, applied only when $q_s^2$ is superior to $q_s^1$, distilling the two-step correction capability back into the first-step output. Finally, $\mathcal{L}_{\mathrm{anc}}$ anchors the student on base datasets (e.g., COCO, RefCOCO) to mitigate catastrophic forgetting.
+\subsection{Data-Policy OPD: Adaptive Distribution Shaping}
+\label{subsec:data_opd}
+
+Static training distributions become increasingly suboptimal as the
+student's capability evolves. In particular, uniformly sampling from the
+same data distribution provides limited benefit once the student becomes
+proficient on frequent and easy concepts, while its remaining errors tend
+to concentrate on rare semantic relations, negative prompts, geometric
+boundaries, and poorly calibrated predictions. We therefore introduce
+Data-Policy OPD, which dynamically reshapes the training distribution
+according to the student's current failure modes.
+
+At the end of each outer cycle, the student is evaluated on a fixed
+diagnostic set and an unlabeled image pool. The resulting error statistics
+are used to construct an error profile, which drives subsequent sample
+selection and hard-prompt generation. Generated samples are then verified
+by the frozen teacher and retained in a short-lived Hard Buffer only when
+they satisfy the quality constraints. The overall process forms a closed
+loop from student errors to targeted data generation.
+
+\subsubsection{Student Error Profiling}
+\label{subsec:error_profile}
+
+We first characterize the student's current weaknesses using a structured
+error profile
+\begin{equation}
+\mathbf{u}
+=
+[
+E_{\mathrm{ent}},
+E_{\mathrm{spa}},
+E_{\mathrm{rel}},
+E_{\mathrm{aff}},
+E_{\mathrm{phy}},
+E_{\mathrm{neg}},
+E_{\mathrm{bd}},
+E_{\mathrm{cal}}
+],
+\label{eq:error_profile}
+\end{equation}
+where $E_{\mathrm{ent}}$, $E_{\mathrm{spa}}$, $E_{\mathrm{rel}}$,
+$E_{\mathrm{aff}}$, and $E_{\mathrm{phy}}$ measure errors in entity and
+attribute understanding, spatial reasoning, relational reasoning,
+functional affordance, and physical/safety reasoning, respectively.
+$E_{\mathrm{neg}}$ measures hallucination under negative prompts,
+$E_{\mathrm{bd}}$ captures geometric boundary errors, and
+$E_{\mathrm{cal}}$ measures prediction calibration.
+
+For each evaluated sample, we additionally record its concept category,
+error type, student confidence, teacher--student disagreement, boundary
+error, prompt type, and estimated difficulty. This structured representation
+allows the data policy to distinguish different failure modes instead of
+treating all segmentation errors uniformly. For example, an incorrect
+instance selection triggers a different generation strategy from
+under-segmentation or a hallucinated object under a negative prompt.
+
+\subsubsection{Adaptive Data Value}
+\label{subsec:data_value}
+
+Given the current error profile, we assign each candidate image--prompt
+pair $(I,p)$ a data value that combines uncertainty, teacher--student
+disagreement, geometric difficulty, novelty, and weakness-aware weighting:
+\begin{equation}
+\begin{aligned}
+V(I,p)
+={}&
+\alpha U(I,p)
++\beta D_{\mathrm{ST}}(I,p)
++\gamma E_{\mathrm{bd}}(I,p) \\
+&+\delta N(I,p)
++\eta W_{\mathrm{weak}}(I,p).
+\end{aligned}
+\label{eq:data_value}
+\end{equation}
+
+Here, $U$ denotes student uncertainty, $D_{\mathrm{ST}}$ denotes
+student--teacher disagreement, $E_{\mathrm{bd}}$ measures boundary error,
+$N$ measures visual or semantic novelty, and $W_{\mathrm{weak}}$ assigns
+larger weights to concepts associated with high values in $\mathbf{u}$.
+The candidate value therefore changes as the student improves, providing
+an explicit on-policy mechanism for adapting the training distribution.
+
+At the concept level, we further introduce an inverse-frequency correction
+to prevent frequently sampled concepts from continuously consuming the
+training budget:
+\begin{equation}
+P(c)
+\propto
+(E_c+\epsilon)^{\rho}
+(N_c+\epsilon)^{-\mu},
+\label{eq:concept_sampling}
+\end{equation}
+where $E_c$ is the current error of concept $c$, $N_c$ is its accumulated
+sampling count, and $\rho$ and $\mu$ control error-driven exploration and
+frequency suppression. Each concept is assigned a minimum sampling ratio
+to prevent rare concepts from being completely discarded.
+
+To avoid stale policy data, the Hard Buffer $\mathcal{H}$ is short-lived
+and retains samples for at most two outer cycles. Consequently, the
+training distribution continuously follows the evolving error profile
+rather than accumulating outdated hard examples.
+
+\subsubsection{Targeted Hard-Prompt Generation}
+\label{subsec:hard_prompt}
+
+The selected images and concepts are passed to a concept-aware prompt
+generation engine. Instead of increasing difficulty arbitrarily, the
+generator constructs prompts that specifically target the failure modes
+identified by $\mathbf{u}$.
+
+We employ five complementary operators. Semantic-preserving rewrites
+change the linguistic expression while maintaining the underlying target
+and therefore provide low-noise augmentation. Minimal semantic pairs
+change only one attribute, relation, state, or physical condition to
+produce interpretable contrasts. Compositional constraints combine
+entities with spatial, relational, functional, or safety conditions.
+Functional and physical counterfactuals modify intended use or physical
+conditions to probe higher-level reasoning. Finally, hallucination-targeted
+generation focuses on regions incorrectly activated by the student and
+constructs prompts involving non-existent objects, incorrect attributes,
+or invalid relations.
+
+The operator is selected according to the dominant error dimensions in
+$\mathbf{u}$, so that prompt generation becomes a targeted response to
+the student's current weaknesses rather than a generic augmentation
+process.
+
+\subsubsection{Multi-Stage Verification}
+\label{subsec:data_verification}
+
+All generated samples are passed through a multi-stage quality gate before
+being inserted into $\mathcal{H}$. We evaluate semantic validity,
+geometric correctness, teacher consistency, and novelty:
+\begin{equation}
+Q_{\mathrm{data}}
+=
+C_{\mathrm{sem}}
+\cdot
+C_{\mathrm{geo}}
+\cdot
+C_{\mathrm{teacher}}
+\cdot
+C_{\mathrm{novel}}.
+\label{eq:data_quality}
+\end{equation}
+
+$C_{\mathrm{sem}}$ measures whether the generated prompt corresponds to a
+valid visual concept, while $C_{\mathrm{geo}}$ evaluates the consistency
+and precision of the associated mask. $C_{\mathrm{teacher}}$ verifies
+that the teacher can reliably interpret and segment the generated sample,
+and $C_{\mathrm{novel}}$ suppresses redundant samples.
+
+For semantic-preserving rewrites, a previously verified mask can be
+directly reused. When the target semantics change, we instead perform
+open-vocabulary localization followed by SAM2 segmentation and
+VLM-based verification. For inherently ambiguous functional or physical
+queries, we retain soft masks or candidate-mask sets rather than forcing
+multiple valid interpretations into a single hard label.
+
+An important constraint is that the data generator never receives the
+complete ground-truth mask or answer text. It only observes the image,
+original prompt, concept category, and structured error type. This
+restriction prevents direct answer leakage and reduces the tendency to
+generate prompts that simply encode the target mask.
+
+\subsubsection{Overall Data-Policy Procedure}
+\label{subsec:data_policy_algorithm}
+
+The complete DL-OPD training process is summarized in
+Algorithm~\ref{alg:dlopd}. At each outer cycle, the student is first
+evaluated to update its error profile. The data policy then selects
+high-value candidates and generates targeted hard prompts according to
+the identified weaknesses. After multi-stage verification, the accepted
+samples refresh the Hard Buffer. The inner loop subsequently consumes
+the Hard Buffer together with the base data and performs state-conditioned
+mask refinement. Thus, the outer and inner policies form a closed-loop
+optimization process in which student behavior continuously determines
+the next training distribution.
+
+\begin{algorithm}[H]
+\caption{Dual-Level On-Policy Distillation (DL-OPD)}
+\label{alg:dlopd}
+\begin{algorithmic}[1]
+
+\Require Student model $\pi_\theta$, frozen teacher model $\pi_T$
+\Require Unlabelled pool $\mathcal{U}$, base data $\mathcal{B}$
+
+\For{$c = 1,\ldots,N_{\mathrm{outer}}$}
+
+    \State \textbf{Data-Policy OPD}
+    \State Evaluate $\pi_\theta$ and update error profile $\mathbf{u}$
+    \State Compute candidate values $V(I,p)$ and concept probabilities
+           $P(c)$
+    \State Sample candidate images and concepts from $\mathcal{U}$
+    \State Generate targeted hard prompts using selected operators
+    \State Verify samples using semantic, geometric,
+           teacher-consistency, and novelty criteria
+    \State Refresh short-lived Hard Buffer $\mathcal{H}$
+
+    \For{$k = 1,\ldots,N_{\mathrm{inner}}$}
+
+        \State \textbf{Mask-Policy OPD}
+        \State Sample a batch from $\mathcal{H}\cup\mathcal{B}$
+        \State $q_s^{1} \gets \pi_\theta(I,p,\emptyset)$
+        \Comment{Initial prediction}
+        \State $q_t^{2} \gets
+        \pi_T(I,p,\operatorname{sg}(q_s^{1}))$
+        \Comment{Teacher correction}
+        \State $q_s^{2} \gets
+        \pi_\theta(I,p,\operatorname{sg}(q_s^{1}))$
+        \Comment{Student refinement}
+        \State Update $\theta$ using the joint loss $\mathcal{L}$
+
+    \EndFor
+
+\EndFor
+
+\State \Return Optimized student model $\pi_\theta$
+
+\end{algorithmic}
+\end{algorithm}

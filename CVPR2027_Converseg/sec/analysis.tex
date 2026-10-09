@@ -1,0 +1,28 @@
+\section{Analysis}
+\label{sec:analysis}
+
+A core contribution of DL-OPD is the transition from a static training paradigm to a dynamic, co-evolving closed loop. To demystify this process, we analyze the learning trajectory across the outer Data-Policy cycles, focusing on how the student's error distribution shifts and how the Hard Buffer adapts in response.
+
+\subsection{Migration of Student Error Distributions}
+\label{subsec:error_migration}
+
+We track the student's real-time error profile vector $u$ at the end of each outer cycle on the diagnostic set. As illustrated in Figure~\ref{fig:evolution_dynamics}(a), the error distribution is highly non-stationary. 
+During Cycle 1, the model struggles predominantly with basic grounding, exhibiting high error rates in \textit{Entities} ($E_{\mathrm{ent}}$) and \textit{Spatial \& Layout} ($E_{\mathrm{spa}}$). As the inner Mask-Policy OPD corrects these flaws, $E_{\mathrm{ent}}$ and $E_{\mathrm{spa}}$ rapidly decline by Cycle 3. 
+However, this exposes deeper reasoning deficits: errors in \textit{Physics \& Safety} ($E_{\mathrm{phy}}$) and \textit{Negative Prompts} ($E_{\mathrm{neg}}$, i.e., hallucinations) become the dominant bottlenecks. By Cycle 5, guided by the outer loop, the model successfully suppresses these complex reasoning errors and hallucination rates, reaching a converged and balanced error profile. This migration proves that static data distributions inevitably waste compute on mastered concepts while severely under-sampling emerging weaknesses.
+
+\subsection{Evolution of the Hard Buffer Composition}
+\label{subsec:buffer_evolution}
+
+The outer data engine dynamically updates the generation operators to mirror the shifting error profile. Figure~\ref{fig:evolution_dynamics}(b) visualizes the composition of the short-lived Hard Buffer across cycles.
+In the initial cycles (Cycles 1--2), the buffer is heavily populated by \textit{Minimal Semantic Pairs} and \textit{Spatial Constraints} to address grounding confusion. Once the student masters these, the sampling probabilities $P(c)$ autonomously decay for these categories due to the frequency penalty mechanism. 
+Consequently, in later cycles (Cycles 4--5), the data engine shifts its budget toward \textit{Physical Counterfactuals} and \textit{Hallucination-targeted Generators}. The Hard Buffer becomes dominated by complex queries (e.g., assessing structural stability or querying non-existent objects). The strict Time-To-Live (TTL) of 1-2 epochs ensures that stale hard samples are flushed out. This dynamic composition perfectly illustrates how the Data-Policy maintains the student in its optimal learning zone.
+
+\begin{figure}[t]
+    \centering
+    % \includegraphics[width=\linewidth]{figures/evolution_dynamics.pdf}
+    \fbox{\parbox[c][2in][c]{0.95\linewidth}{\centering
+    \small Placeholder: (a) Line chart showing error rates ($E_{\mathrm{ent}}, E_{\mathrm{phy}}, E_{\mathrm{neg}}$, etc.) dropping at different rates across cycles. \\
+    (b) Stacked area chart showing Hard Buffer composition shifting from Semantic Pairs to Physical/Negative constraints.}}
+    \caption{\textbf{Dynamics of DL-OPD Co-Evolution.} (a) The migration of student error distributions across outer cycles. (b) The corresponding adaptive shift in the Hard Buffer's composition[cite: 4].}
+    \label{fig:evolution_dynamics}
+\end{figure}
